@@ -105,7 +105,7 @@ class TTM(nn.Module):
         ein_str_parts.append(''.join(opt_einsum.get_symbol(dim) for dim in out_dims))
 
         ein_str = f'{",".join(ein_str_parts[:-1])}->{ein_str_parts[-1]}'
-
+        #print (ein_str)
         x_reshaped = x.reshape(x.shape[:1] + self.dims_in)
         return cached_einsum(ein_str, *self.tt.cores, x_reshaped).reshape(x_reshaped.shape[0], -1)
 
@@ -133,6 +133,7 @@ class TTMByHands(TTM):
         for i in range(self.tt.n_dims):
             core_expr = f'{prev_rank_symbol}{opt_einsum.get_symbol(i)}{new_dim_symbol}{next_rank_symbol}'
             result_expr = ''.join(x_dims[:i + 1] + [new_dim_symbol] + x_dims[i + 2:-1] + [next_rank_symbol])
+            #print ("{x_expr},{core_expr},{result_expr}", x_expr,core_expr,result_expr)
             x_new = cached_einsum(f'{x_expr},{core_expr}->{result_expr}', x, self.tt.cores[i])
 
             pad_dims = (
