@@ -139,6 +139,7 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
             inputs = inputs.to(args.device)
             labels = labels.to(args.device)
             model.train()
+            
             outputs = model(inputs) if args.mlm else model(inputs, labels=labels)
             loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
@@ -189,6 +190,7 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
                         os.makedirs(output_dir)
                     model_to_save = model.module if hasattr(model, 'module') else model  # Take care of distributed/parallel training
                     model_to_save.save_pretrained(output_dir)
+                    torch.save(model.state_dict(), os.path.join(output_dir, 'model_tt.pth'))
                     torch.save(args, os.path.join(output_dir, 'training_args.bin'))
                     logger.info("Saving model checkpoint to %s", output_dir)
 
@@ -199,6 +201,7 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
                 break
         
         results = evaluate(args, model, valid_dataset, tokenizer)
+        wandb.log(results)
         print ("evaluation ", results, flush = True)
         print ("losses", np.array(losses).mean())
         if args.max_steps > 0 and global_step > args.max_steps:
