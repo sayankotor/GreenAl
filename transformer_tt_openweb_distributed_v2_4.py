@@ -104,7 +104,7 @@ def train_mp_wrapper(gpu, args):
                                 file_path="/notebook/greenAI_gpt/wikitext-103/wiki.valid.tokens", block_size=1024)
     print ("loaded test valid datsets", flush = True)
     
-    dataset_train = FileListDataset.from_filelist(filelist=filelist, tokenizer=tokenizer, seq_len=1024), current_proc=gpu, n_proc=args.n_gpu)
+    dataset_train = FileListDataset.from_filelist(filelist=filelist, tokenizer=tokenizer, seq_len=1024, current_proc=gpu, n_proc=args.n_gpu)
     train_dataloader = DataLoader(dataset_train, batch_size=args.per_gpu_train_batch_size, collate_fn=FileListDataset.collate_fn, drop_last=True)
     
     print ("wr5", gpu)
