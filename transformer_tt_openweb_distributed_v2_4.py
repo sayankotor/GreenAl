@@ -45,9 +45,8 @@ set_verbosity_error()
 from src.data_classes.iterable_dataset_mp import getListOfFiles, FileListDataset
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1, 6, 4, 0"
 
-filelist = getListOfFiles('/raid/data/chekalina/texts')
+filelist = getListOfFiles('/slot/sandbox/d/in/data/0_data_unpacked/texts')
 print (len(filelist))
 
 #filelist = filelist1 + filelist2 + filelist3 + filelist4 + filelist5
