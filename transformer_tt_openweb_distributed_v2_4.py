@@ -27,7 +27,7 @@ sys.path.append(str(BASE_DIR))
 sys.path.append(str(BASE_DIR)+"/"+"src")
 
 from src.classes.gpt2_tt import GPT2_TT_Model
-from src.layers2.linear import TTMLinear
+# from src.layers2.linear import TTMLinear
 from src.classes.gpt_med_config import GPT2MedConfig
 from help_trainer_last import train
 
