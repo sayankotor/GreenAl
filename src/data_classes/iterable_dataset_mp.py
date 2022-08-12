@@ -109,6 +109,75 @@ class FileListIteratorMultiproc:
             else:
                 yield line.strip("\n")
                 
+class FileListIteratorMultiprocScaletorch:
+    
+    """
+    Class to iterate over text files in the given filelist considering multiprocessing.
+    
+    Attributes:
+    ----------
+    
+    filelist: filelist
+        List of text files over which Dataset is created.
+    nfiles: int
+        Number of files in filelist
+    n_proc: int
+        Number of processes which work with data.
+    current_proc: int
+        Number of process which Iterator object works in
+    """
+    
+    def __init__(self, filelist, current_proc, n_proc):
+        self.filelist = filelist
+        self.nfiles = len(self.filelist)
+        self.n_proc = n_proc
+        self.current_proc = current_proc
+        
+    def __iter__(self):
+        """
+        Iterates over files in filelist and reads text in files.
+        
+        Returns:
+        -------
+            Yields (str) - text in current txt-file.
+        
+        """
+        self.fileidx = 0
+        self.shift = 1
+        if self.n_proc > 1:
+            #per_worker = int(math.ceil((self.end - self.start) / float(worker_info.num_workers)))
+            worker_id = self.current_proc
+            self.fileidx = self.fileidx + worker_id
+            self.shift = self.n_proc
+            print ("multiproc")
+            print ("worker id", worker_id)
+            print ("self.fileidx ", self.filelist[self.fileidx])
+            print ("shift", self.shift)
+            print ("next", self.filelist[self.fileidx + self.shift])
+            print ("\n\n")
+            
+        self.fin = open('s3://' + self.filelist[self.fileidx], "r")
+        # single-process data loading, return the full iterator
+        while True:
+            line = self.fin.readline()
+            # self.lines += 1
+            if line == "":
+                # reached EOF
+                # print('reached eof of file', self.fileidx, self.nfiles, self.lines)
+                # self.lines = 0
+                self.fin.close()
+                self.fileidx += self.shift
+                if self.fileidx > self.nfiles - self.n_proc:
+                    # end of filelist
+                    # print('reached end of filelist', self.fileidx)
+                    break
+                else:
+                    self.fin = open(self.filelist[self.fileidx], "r")
+                    line = self.fin.readline()
+                    yield line.strip("\n")
+            else:
+                yield line.strip("\n")
+                
 class FileListDataset(torch.utils.data.IterableDataset):
     """Class for create an iterable-style dataset from directory with text files
     
@@ -155,7 +224,7 @@ class FileListDataset(torch.utils.data.IterableDataset):
         
         worker_info = torch.utils.data.get_worker_info()
         print ("worker_info", worker_info)
-        iterator = FileListIteratorMultiproc(filelist=filelist, current_proc=current_proc, n_proc=n_proc)
+        iterator = FileListIteratorMultiprocScaletorch(filelist=filelist, current_proc=current_proc, n_proc=n_proc)
         return cls(
             iterator=iterator,
             tokenizer=tokenizer,

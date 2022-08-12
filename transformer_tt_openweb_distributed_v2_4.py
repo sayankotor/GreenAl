@@ -15,6 +15,7 @@ import torch.distributed as dist
 
 import pathlib
 # BASE_DIR will be like '/home/jovyan/DemoExample/'
+
 BASE_DIR = pathlib.Path().absolute()
 print(f"Working dir: {BASE_DIR}")
 
@@ -27,7 +28,7 @@ sys.path.append(str(BASE_DIR))
 sys.path.append(str(BASE_DIR)+"/"+"src")
 
 from src.classes.gpt2_tt import GPT2_TT_Model
-from src.layers2.linear import TTMLinear
+from src.ttm_linear import TTMLinear
 from src.classes.gpt_med_config import GPT2MedConfig
 from help_trainer_last import train
 
@@ -44,10 +45,25 @@ set_verbosity_error()
 # iterable datasets
 from src.data_classes.iterable_dataset_mp import getListOfFiles, FileListDataset
 
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1, 6, 4, 0"
+#import os
+#os.environ["CUDA_VISIBLE_DEVICES"]="1, 6, 4, 0"
 
-filelist = getListOfFiles('/raid/data/chekalina/texts')
+# uncomment if not used scaletorch
+#filelist = getListOfFiles('/raid/data/chekalina/texts')
+
+import os
+import subprocess
+import sys
+
+os.environ['AWS_ACCESS_KEY_ID'] = "u-usr-156nj-krg"
+os.environ['AWS_SECRET_ACCESS_KEY'] = "2cjkYwJjoUkSDpIPqro1o5dsN3qoOVlU6IEG3e3V"
+
+import scaletorch as st
+st.init()
+
+print ("before read")
+filelist = st.list_files('s3://b-usr-156nj-k9r/datasets_v2', pattern="*.txt")
+print ("after read")
 print (len(filelist))
 
 #filelist = filelist1 + filelist2 + filelist3 + filelist4 + filelist5
@@ -97,14 +113,14 @@ def train_mp_wrapper(gpu, args):
     
     torch.manual_seed(0)
     dataset_valid = TextDataset(tokenizer=tokenizer, 
-                                file_path="/notebook/greenAI_gpt/wikitext-103/wiki.valid.tokens", 
+                                file_path="/jupyter/abundant-bardeen-730/wikitext-103/wiki.valid.tokens", 
                                 block_size=1024)
     
     dataset_test = TextDataset(tokenizer=tokenizer, 
-                                file_path="/notebook/greenAI_gpt/wikitext-103/wiki.valid.tokens", block_size=1024))
+                                file_path="/jupyter/abundant-bardeen-730/wikitext-103/wiki.valid.tokens", block_size=1024)
     print ("loaded test valid datsets", flush = True)
     
-    dataset_train = FileListDataset.from_filelist(filelist=filelist, tokenizer=tokenizer, seq_len=1024), current_proc=gpu, n_proc=args.n_gpu)
+    dataset_train = FileListDataset.from_filelist(filelist=filelist, tokenizer=tokenizer, seq_len=1024, current_proc=gpu, n_proc=args.n_gpu)
     train_dataloader = DataLoader(dataset_train, batch_size=args.per_gpu_train_batch_size, collate_fn=FileListDataset.collate_fn, drop_last=True)
     
     print ("wr5", gpu)
@@ -162,11 +178,11 @@ def main():
     args.max_steps = -1
     args.per_gpu_train_batch_size = 4
     args.per_gpu_eval_batch_size = 4
-    args.n_gpu = 8
-    args.gradient_accumulation_steps = 16
+    args.n_gpu = 4
+    args.gradient_accumulation_steps = 32
     args.num_train_epochs = 4
     args.weight_decay = 0.001
-    args.learning_rate = 2.25e-5
+    args.learning_rate = 5.25e-5
     args.adam_epsilon = 1e-8
     args.warmup_steps = 1500
     args.seed = 42
@@ -177,11 +193,11 @@ def main():
     args.logging_steps = 200
     args.save_steps = 500
     args.evaluate_during_training = True
-    args.output_dir = '/notebook/greenAI_gpt/out_transformer_0_v2'
+    args.output_dir = '/jupyter/abundant-bardeen-730/work/GreenAl/out_transformer_0_v2'
     args.eval_batch_size = 16
     args.save_total_limit = 2
     args.from_chkpt = False
-    args.chkpt_path = "/notebook/greenAI_gpt/out_transformer_0_v1/checkpoint-1500/"
+    args.chkpt_path = "/jupyter/abundant-bardeen-730/work/GreenAl/out_transformer_0_v1/checkpoint-1500/"
 
     mp.spawn(train_mp_wrapper, nprocs=args.n_gpu, args=(args,))
     
