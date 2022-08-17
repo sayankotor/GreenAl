@@ -20,8 +20,6 @@ BASE_DIR = pathlib.Path().absolute()
 print(f"Working dir: {BASE_DIR}")
 
 import argparse
-import wandb
-
 
 import sys
 sys.path.append(str(BASE_DIR))
@@ -62,7 +60,10 @@ import scaletorch as st
 st.init()
 
 print ("before read")
-filelist = st.list_files('s3://b-usr-156nj-k9r/datasets_v2', pattern="*.txt")
+#filelist = st.list_files('s3://b-usr-156nj-k9r/datasets_v2', pattern="*.txt")
+import pickle
+with open('files.pkl', 'rb') as f:
+    filelist = pickle.load(f)
 print ("after read")
 print (len(filelist))
 
@@ -83,9 +84,6 @@ def train_mp_wrapper(gpu, args):
     os.environ['MASTER_PORT'] = '12355'
     dist.init_process_group('nccl', rank=gpu, world_size=args.n_gpu)
     print ("gpu", gpu, flush = True)
-    
-    if (gpu == 0):
-        wandb.init(project="greenAI", entity="sayankotor")
     
     # Initializing a GPT2 configuration
     configuration = GPT2MedConfig()
@@ -113,11 +111,11 @@ def train_mp_wrapper(gpu, args):
     
     torch.manual_seed(0)
     dataset_valid = TextDataset(tokenizer=tokenizer, 
-                                file_path="/jupyter/abundant-bardeen-730/wikitext-103/wiki.valid.tokens", 
+                                file_path="/jupyter/bohemian-chandrasekhar-762/work/GreenAl/wikitext-103/wiki.valid.tokens", 
                                 block_size=1024)
     
     dataset_test = TextDataset(tokenizer=tokenizer, 
-                                file_path="/jupyter/abundant-bardeen-730/wikitext-103/wiki.valid.tokens", block_size=1024)
+                                file_path="/jupyter/bohemian-chandrasekhar-762/work/GreenAl/wikitext-103/wiki.test.tokens", block_size=1024)
     print ("loaded test valid datsets", flush = True)
     
     dataset_train = FileListDataset.from_filelist(filelist=filelist, tokenizer=tokenizer, seq_len=1024, current_proc=gpu, n_proc=args.n_gpu)
@@ -176,13 +174,13 @@ def main():
     
     args.local_rank = 0
     args.max_steps = -1
-    args.per_gpu_train_batch_size = 4
-    args.per_gpu_eval_batch_size = 4
-    args.n_gpu = 4
-    args.gradient_accumulation_steps = 32
+    args.per_gpu_train_batch_size = 6
+    args.per_gpu_eval_batch_size = 6
+    args.n_gpu = 2
+    args.gradient_accumulation_steps = 42
     args.num_train_epochs = 4
     args.weight_decay = 0.001
-    args.learning_rate = 5.25e-5
+    args.learning_rate = 6.25e-5
     args.adam_epsilon = 1e-8
     args.warmup_steps = 1500
     args.seed = 42
@@ -193,7 +191,7 @@ def main():
     args.logging_steps = 200
     args.save_steps = 500
     args.evaluate_during_training = True
-    args.output_dir = '/jupyter/abundant-bardeen-730/work/GreenAl/out_transformer_0_v2'
+    args.output_dir = '/jupyter/bohemian-chandrasekhar-762/work/GreenAl/out_transformer_0_v2'
     args.eval_batch_size = 16
     args.save_total_limit = 2
     args.from_chkpt = False

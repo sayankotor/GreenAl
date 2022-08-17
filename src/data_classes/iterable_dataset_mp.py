@@ -12,6 +12,8 @@ import math
 
 import matplotlib.pyplot as plt
 
+from scaletorch import stfs
+
 
 def getListOfFiles(dirName):
     """ 
@@ -156,7 +158,7 @@ class FileListIteratorMultiprocScaletorch:
             print ("next", self.filelist[self.fileidx + self.shift])
             print ("\n\n")
             
-        self.fin = open('s3://' + self.filelist[self.fileidx], "r")
+        self.fin = stfs.open('s3://' + self.filelist[self.fileidx], "r")
         # single-process data loading, return the full iterator
         while True:
             line = self.fin.readline()
@@ -172,7 +174,7 @@ class FileListIteratorMultiprocScaletorch:
                     # print('reached end of filelist', self.fileidx)
                     break
                 else:
-                    self.fin = open(self.filelist[self.fileidx], "r")
+                    self.fin = stfs.open('s3://' + self.filelist[self.fileidx], "r")
                     line = self.fin.readline()
                     yield line.strip("\n")
             else:

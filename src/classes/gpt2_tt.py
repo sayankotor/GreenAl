@@ -41,7 +41,6 @@ class GPT2_TT_Model(GPT2LMHeadModel):
             # fc part
             old_layer = self.transformer.h[i].mlp.c_fc
             (in_, out_) = old_layer.weight.shape
-            print (old_layer.weight.shape)
             layer = FactorizationTTMLinear(in_, out_, rank=rank, max_core_dim_product = rank)
             #drop_layer = TTDropout(layer, proba = 0.7, min_dim = 2, rank=128)
             #layer = drop_layer

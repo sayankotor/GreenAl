@@ -15,7 +15,7 @@ from transformers import TextDataset
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 
-import wandb
+#import wandb
 
 logger = logging.getLogger("transformer.log")
 try:
@@ -156,6 +156,8 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
                 print (inputs.shape)
                 print("torch.cuda.memory_allocated()", torch.cuda.memory_allocated())
                 print("torch.cuda.memory_reserved()", torch.cuda.memory_reserved(), flush = True)
+                results = evaluate(args, model, valid_dataset)
+                print ("evaluation ", results, flush = True)
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
@@ -190,7 +192,7 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
                     print ('lr', scheduler.get_lr()[0], global_step, flush = True)
                     print ('loss', (tr_loss - logging_loss)/args.logging_steps, global_step, flush = True)
                     results = evaluate(args, model, valid_dataset)
-                    wandb.log(results)
+                    #wandb.log(results)
                     if (results['perplexity'] < 100.0):
                         print ("change bs")
                         args.gradient_accumulation_steps = args.gradient_accumulation_steps // 4
