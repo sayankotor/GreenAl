@@ -75,7 +75,7 @@ class FileListIteratorMultiproc:
             Yields (str) - text in current txt-file.
         
         """
-        self.fileidx = 0
+        self.fileidx = 3060000
         self.shift = 1
         if self.n_proc > 1:
             #per_worker = int(math.ceil((self.end - self.start) / float(worker_info.num_workers)))

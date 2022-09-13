@@ -101,7 +101,7 @@ def train_mp_wrapper(gpu, args):
     # loading from checkpoint
     if (args.from_chkpt):
         print ("pre-load")
-        dictt1 = torch.load("/notebook/greenAI_gpt/out_transformer_0_v1/checkpoint-1500/model_tt.pth", map_location = device)
+        dictt1 = torch.load(args.chkpt_path + "model_tt.pth", map_location = device)
         print ("pre-load")
         ddp_model.load_state_dict(dictt1)   
         print ("post-load")
@@ -177,7 +177,7 @@ def main():
     args.per_gpu_train_batch_size = 6
     args.per_gpu_eval_batch_size = 6
     args.n_gpu = 2
-    args.gradient_accumulation_steps = 42
+    args.gradient_accumulation_steps = 29
     args.num_train_epochs = 4
     args.weight_decay = 0.001
     args.learning_rate = 6.25e-5

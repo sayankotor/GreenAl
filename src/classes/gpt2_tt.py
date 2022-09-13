@@ -1,5 +1,6 @@
 from transformers import GPT2Model, GPT2Config, GPT2LMHeadModel
-from src.ttm_linear.ttm_linear import FactorizationTTMLinear
+#from src.ttm_linear.ttm_linear.ttm_linear import FactorizationTTMLinear
+from src.layers2.linear import TTMLinear
 
 class GPT2_TT_Model(GPT2LMHeadModel):
     
@@ -10,7 +11,7 @@ class GPT2_TT_Model(GPT2LMHeadModel):
     configuration : str
         Configuration file that stores parameter for GPT2 model.
     rank : int 
-        A rank of the TTMLinear layer - TT representation of FC layers. 
+        A rank o af the TTMLinear layer - TT representation of FC layers. 
         
     See Also
     --------
@@ -41,7 +42,8 @@ class GPT2_TT_Model(GPT2LMHeadModel):
             # fc part
             old_layer = self.transformer.h[i].mlp.c_fc
             (in_, out_) = old_layer.weight.shape
-            layer = FactorizationTTMLinear(in_, out_, rank=rank, max_core_dim_product = rank)
+            #layer = FactorizationTTMLinear(in_, out_, rank=rank, max_core_dim_product = rank)
+            layer = TTMLinear(in_, out_, rank=rank)
             #drop_layer = TTDropout(layer, proba = 0.7, min_dim = 2, rank=128)
             #layer = drop_layer
             self.transformer.h[i].mlp.c_fc = layer
@@ -50,8 +52,10 @@ class GPT2_TT_Model(GPT2LMHeadModel):
             old_layer = self.transformer.h[i].mlp.c_proj
             (in_, out_) = old_layer.weight.shape
             #print (old_layer.weight.shape)
-            layer = FactorizationTTMLinear(in_, out_, rank=rank, max_core_dim_product = rank)
+            layer = TTMLinear(in_, out_, rank=rank)
+            #layer = FactorizationTTMLinear(in_, out_, rank=rank, max_core_dim_product = rank)
             #drop_layer = TTDropout(layer, proba = 0.8, min_dim = 2, rank=128)
             #layer = drop_layer
             self.transformer.h[i].mlp.c_proj = layer
+            
         

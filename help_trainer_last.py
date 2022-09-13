@@ -15,8 +15,6 @@ from transformers import TextDataset
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 
-#import wandb
-
 logger = logging.getLogger("transformer.log")
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -90,15 +88,20 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
     - full number of training steps, the average loss
     
     """
+    
+    need_reduce1 = True
+    need_reduce2 = True
+    need_reduce3 = True
+    
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
     args.train_batch_size = args.per_gpu_train_batch_size
     
     if args.max_steps > 0:
         t_total = args.max_steps
-        args.num_train_epochs = args.max_steps // ((8013744//args.n_gpu) // args.gradient_accumulation_steps) + 1
+        args.num_train_epochs = args.max_steps // (len(train_dataloader) // args.gradient_accumulation_steps) + 1
     else:
-        t_total = (8013744//args.n_gpu) // args.gradient_accumulation_steps * args.num_train_epochs
+        t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
 
     # Prepare optimizer and schedule (linear warmup and decay)
     no_decay = ['bias', 'LayerNorm.weight']
@@ -108,13 +111,13 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
         ]
     #optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     print ("total step", t_total)
-    print ("len(train_dataloader)", 8013744)
+    print ("len(train_dataloader)", len(train_dataloader))
     optimizer = AdamW(optimizer_grouped_parameters, betas = (0.9, 0.95), lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps = t_total)
-    
+    device = torch.device(f'cuda:{gpu}') 
     if (args.from_chkpt):
-        optimizer.load_state_dict(torch.load(args.chkpt_path + 'optimizer.pt', map_location = 'cpu'))
-        scheduler.load_state_dict(torch.load(args.chkpt_path + 'scheduler.pt', map_location = 'cpu'))
+        optimizer.load_state_dict(torch.load(args.chkpt_path + 'optimizer.pt', map_location=device))
+        scheduler.load_state_dict(torch.load(args.chkpt_path + 'scheduler.pt', map_location=device))
     
     if args.fp16:
         try:
@@ -139,6 +142,11 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
     train_iterator = trange(int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0])
     print ("num_epochs", int(args.num_train_epochs))
     set_seed(args)  # Added here for reproducibility (even between python 2 and 3)
+    
+    results = evaluate(args, model, valid_dataset)
+    #wandb.log(results)
+    print ("evaluation ", results, flush = True)
+    
     for _ in train_iterator:
         print ("epoch ", _, "\n")
         losses = []
@@ -156,8 +164,6 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
                 print (inputs.shape)
                 print("torch.cuda.memory_allocated()", torch.cuda.memory_allocated())
                 print("torch.cuda.memory_reserved()", torch.cuda.memory_reserved(), flush = True)
-                results = evaluate(args, model, valid_dataset)
-                print ("evaluation ", results, flush = True)
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
@@ -186,21 +192,24 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
                 if gpu == 0 and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     print ("into", flush = True)
                     # Log metrics
-                    tb_writer.add_scalar('lr', scheduler.get_lr()[0], global_step)
+                    tb_writer.add_scalar('lr, last_lr', scheduler.get_lr()[0], scheduler.get_last_lr()[0], global_step)
                     tb_writer.add_scalar('loss', (tr_loss - logging_loss)/args.logging_steps, global_step)
                     print ('total step, logging step', t_total, global_step)
-                    print ('lr', scheduler.get_lr()[0], global_step, flush = True)
+                    print ('lr, last_lr', scheduler.get_lr()[0], scheduler.get_last_lr()[0], global_step, flush = True)
                     print ('loss', (tr_loss - logging_loss)/args.logging_steps, global_step, flush = True)
                     results = evaluate(args, model, valid_dataset)
-                    #wandb.log(results)
-                    if (results['perplexity'] < 100.0):
+                    if (results['perplexity'] < 50.0 and need_reduce1 == True):
                         print ("change bs")
-                        args.gradient_accumulation_steps = args.gradient_accumulation_steps // 4
-                    if (results['perplexity'] < 50.0):
-                        print ("change bs")
+                        need_reduce1 = False
                         args.gradient_accumulation_steps = args.gradient_accumulation_steps // 2
-                    if (results['perplexity'] < 22.0):
+                    if (results['perplexity'] < 30.0 and need_reduce2 == True):
                         print ("change bs")
+                        need_reduce2 = False
+                        args.gradient_accumulation_steps = args.gradient_accumulation_steps // 2
+                        
+                    if (results['perplexity'] < 22.0 and need_reduce3 == True):
+                        print ("change bs")
+                        need_reduce3 = False
                         args.gradient_accumulation_steps = args.gradient_accumulation_steps // 2
                     print ("evaluation ", results, flush = True)
                     print ("losses", np.array(losses).mean())
