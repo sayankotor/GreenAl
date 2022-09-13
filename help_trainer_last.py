@@ -186,7 +186,6 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
                 optimizer.step()
                 scheduler.step()  # Update learning rate schedule
                 model.zero_grad()
-                global_step += 1
                     
                 #print ("bwfore", (gpu == 0 and args.logging_steps > 0 and global_step % args.logging_steps == 0), flush = True)
                 if gpu == 0 and args.logging_steps > 0 and global_step % args.logging_steps == 0:
@@ -230,6 +229,8 @@ def train(args, train_dataloader, valid_dataset, test_dataset, model, gpu):
                     logger.info("Saving model checkpoint to %s", output_dir)
 
                     _rotate_checkpoints(args, checkpoint_prefix)
+                    
+            global_step += 1
 
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
