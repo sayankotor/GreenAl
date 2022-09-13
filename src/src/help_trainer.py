@@ -63,14 +63,14 @@ def load_and_cache_examples(args, tokenizer, evaluate=False):
     return dataset
 
 
-from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup, get_polynomial_decay_schedule_with_warmup, get_cosine_schedule_with_warmup,
+from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
                                   GPT2Config, GPT2LMHeadModel, GPT2Tokenizer)
 
-def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
+def train(args, train_dataset, valid_dataset, model, tokenizer):
     
-    #print(torch.cuda.memory_allocated())
-    #print(torch.cuda.memory_reserved())
-    #print("memory summary1", torch.cuda.memory_summary(device=model.device), flush = True)
+    print(torch.cuda.memory_allocated())
+    print(torch.cuda.memory_reserved())
+    print("memory summary1", torch.cuda.memory_summary(device=model.device), flush = True)
     
     """ Train the model """
     if args.local_rank in [-1, 0]:
@@ -91,11 +91,8 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
         {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay},
         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
         ]
-    #optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    print ("total step", t_total)
-    print ("len(train_dataloader)", len(train_dataloader))
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps = t_total)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps = t_total)
     if args.fp16:
         try:
             from apex import amp
@@ -130,22 +127,14 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
     train_iterator = trange(int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0])
     print ("num_epochs", int(args.num_train_epochs))
     set_seed(args)  # Added here for reproducibility (even between python 2 and 3)
-    
-    results = evaluate(args, model, valid_dataset, tokenizer)
-    #wandb.log(results)
-    print ("evaluation ", results, flush = True)
-    print ("losses", np.array(losses).mean())
-    
     for _ in train_iterator:
-        print ("epoch ", _, "\n")
         losses = []
-        epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=True)
+        epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         for step, batch in enumerate(epoch_iterator):
             inputs, labels = mask_tokens1(batch, tokenizer, args) if args.mlm else (batch, batch)
             inputs = inputs.to(args.device)
             labels = labels.to(args.device)
             model.train()
-            
             outputs = model(inputs) if args.mlm else model(inputs, labels=labels)
             loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
@@ -162,9 +151,6 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
 
             tr_loss += loss.item()
             losses.append(tr_loss)
-            #print(torch.cuda.memory_allocated())
-            #print(torch.cuda.memory_reserved())
-            #print("memory summary1", torch.cuda.memory_summary(device=model.device), flush = True)
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 if args.fp16:
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
@@ -174,11 +160,9 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
                 scheduler.step()  # Update learning rate schedule
                 model.zero_grad()
                 global_step += 1
-               
-                
+
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     # Log metrics
-                    
                     if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
                         results = evaluate(args, model, valid_dataset, tokenizer)
                         print ("evaluation ", results, flush = True)
@@ -196,7 +180,6 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
                         os.makedirs(output_dir)
                     model_to_save = model.module if hasattr(model, 'module') else model  # Take care of distributed/parallel training
                     model_to_save.save_pretrained(output_dir)
-                    torch.save(model.state_dict(), os.path.join(output_dir, 'model_tt.pth'))
                     torch.save(args, os.path.join(output_dir, 'training_args.bin'))
                     logger.info("Saving model checkpoint to %s", output_dir)
 
@@ -205,19 +188,18 @@ def train(args, train_dataset, valid_dataset, test_dataset, model, tokenizer):
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
                 break
-        
-        results = evaluate(args, model, valid_dataset, tokenizer)
-        #wandb.log(results)
-        print ("evaluation ", results, flush = True)
+        try:
+            perplexity = torch.exp(torch.tensor(np.array(losses).mean()))
+        except OverflowError:
+             perplexity = np.inf
         print ("losses", np.array(losses).mean())
+        print(f"Perplexity is {perplexity:.3f}")
         if args.max_steps > 0 and global_step > args.max_steps:
             train_iterator.close()
             break
-    #print(torch.cuda.memory_allocated())
-    #print(torch.cuda.memory_reserved())
-    #print("memory summary", torch.cuda.memory_summary(device=model.device), flush = True)
-    results = evaluate(args, model, test_dataset, tokenizer)
-    print ("test ", results, flush = True)
+    print(torch.cuda.memory_allocated())
+    print(torch.cuda.memory_reserved())
+    print("memory summary", torch.cuda.memory_summary(device=model.device), flush = True)
     if args.local_rank in [-1, 0]:
         tb_writer.close()
     
@@ -244,7 +226,7 @@ def evaluate(args, model, dataset_valid, tokenizer, prefix=""):
     perplexity = 0.0
     nb_eval_steps = 0
     model.eval()
-    losses = []
+
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         inputs, labels = mask_tokens(batch, tokenizer, args) if args.mlm else (batch, batch)
         inputs = inputs.to(args.device)
@@ -255,16 +237,12 @@ def evaluate(args, model, dataset_valid, tokenizer, prefix=""):
             lm_loss = outputs[0]
             eval_loss += lm_loss.mean().item()
             perplexity += torch.exp(torch.tensor(eval_loss))
-            losses.append(eval_loss)
         nb_eval_steps += 1
 
     eval_loss = eval_loss / nb_eval_steps
-    #perplexity = perplexity / nb_eval_steps
-    perplexity = torch.exp(torch.tensor(eval_loss))
-
+    perplexity = perplexity / nb_eval_steps
     result = {
-        "perplexity": perplexity,
-        "loss":eval_loss
+        "perplexity": perplexity
     }
 
     output_eval_file = os.path.join(eval_output_dir, prefix, "eval_results.txt")

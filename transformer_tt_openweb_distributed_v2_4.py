@@ -1,6 +1,6 @@
 from transformers import GPT2Model, GPT2Config, GPT2LMHeadModel
-#from transformers import DataCollatorForLanguageModeling, default_data_collator
-#from transformers import default_data_collator
+from transformers import DataCollatorForLanguageModeling, default_data_collator
+from transformers import default_data_collator
 from transformers.configuration_utils import PretrainedConfig
 from transformers import GPT2Tokenizer
 
@@ -15,7 +15,6 @@ import torch.distributed as dist
 
 import pathlib
 # BASE_DIR will be like '/home/jovyan/DemoExample/'
-
 BASE_DIR = pathlib.Path().absolute()
 print(f"Working dir: {BASE_DIR}")
 
@@ -26,7 +25,7 @@ sys.path.append(str(BASE_DIR))
 sys.path.append(str(BASE_DIR)+"/"+"src")
 
 from src.classes.gpt2_tt import GPT2_TT_Model
-from src.ttm_linear import TTMLinear
+from src.layers2.linear import TTMLinear
 from src.classes.gpt_med_config import GPT2MedConfig
 from help_trainer_last import train
 
@@ -43,28 +42,10 @@ set_verbosity_error()
 # iterable datasets
 from src.data_classes.iterable_dataset_mp import getListOfFiles, FileListDataset
 
-#import os
-#os.environ["CUDA_VISIBLE_DEVICES"]="1, 6, 4, 0"
-
-# uncomment if not used scaletorch
-#filelist = getListOfFiles('/raid/data/chekalina/texts')
-
 import os
-import subprocess
-import sys
+os.environ["CUDA_VISIBLE_DEVICES"]="0, 1, 3"
 
-os.environ['AWS_ACCESS_KEY_ID'] = "u-usr-156nj-krg"
-os.environ['AWS_SECRET_ACCESS_KEY'] = "2cjkYwJjoUkSDpIPqro1o5dsN3qoOVlU6IEG3e3V"
-
-import scaletorch as st
-st.init()
-
-print ("before read")
-#filelist = st.list_files('s3://b-usr-156nj-k9r/datasets_v2', pattern="*.txt")
-import pickle
-with open('files.pkl', 'rb') as f:
-    filelist = pickle.load(f)
-print ("after read")
+filelist = getListOfFiles(str(BASE_DIR)+'/' +'owt_files/openwebtext/texts')
 print (len(filelist))
 
 #filelist = filelist1 + filelist2 + filelist3 + filelist4 + filelist5
@@ -84,7 +65,6 @@ def train_mp_wrapper(gpu, args):
     os.environ['MASTER_PORT'] = '12355'
     dist.init_process_group('nccl', rank=gpu, world_size=args.n_gpu)
     print ("gpu", gpu, flush = True)
-    
     # Initializing a GPT2 configuration
     configuration = GPT2MedConfig()
    
@@ -100,22 +80,19 @@ def train_mp_wrapper(gpu, args):
     
     # loading from checkpoint
     if (args.from_chkpt):
-        print ("pre-load")
-        dictt1 = torch.load("/notebook/greenAI_gpt/out_transformer_0_v1/checkpoint-1500/model_tt.pth", map_location = device)
-        print ("pre-load")
+        dictt1 = torch.load("/notebook/greenAI/out_transformer_0_v2/checkpoint-4500/model_tt.pth", map_location=device)
         ddp_model.load_state_dict(dictt1)   
-        print ("post-load")
 
     ddp_model.to(gpu)
     print ("model loaded", flush = True)
     
     torch.manual_seed(0)
     dataset_valid = TextDataset(tokenizer=tokenizer, 
-                                file_path="/jupyter/bohemian-chandrasekhar-762/work/GreenAl/wikitext-103/wiki.valid.tokens", 
+                                file_path="/notebook/greenAI/wikitext-103/wiki.valid.tokens", 
                                 block_size=1024)
     
     dataset_test = TextDataset(tokenizer=tokenizer, 
-                                file_path="/jupyter/bohemian-chandrasekhar-762/work/GreenAl/wikitext-103/wiki.test.tokens", block_size=1024)
+                                file_path="/notebook/greenAI/wikitext-103/wiki.valid.tokens", block_size=1024)
     print ("loaded test valid datsets", flush = True)
     
     dataset_train = FileListDataset.from_filelist(filelist=filelist, tokenizer=tokenizer, seq_len=1024, current_proc=gpu, n_proc=args.n_gpu)
@@ -174,13 +151,13 @@ def main():
     
     args.local_rank = 0
     args.max_steps = -1
-    args.per_gpu_train_batch_size = 6
-    args.per_gpu_eval_batch_size = 6
+    args.per_gpu_train_batch_size = 1
+    args.per_gpu_eval_batch_size = 1
     args.n_gpu = 2
-    args.gradient_accumulation_steps = 42
-    args.num_train_epochs = 4
+    args.gradient_accumulation_steps = 170
+    args.num_train_epochs = 3
     args.weight_decay = 0.001
-    args.learning_rate = 6.25e-5
+    args.learning_rate = 2.95e-5
     args.adam_epsilon = 1e-8
     args.warmup_steps = 1500
     args.seed = 42
@@ -188,14 +165,14 @@ def main():
     args.device = torch.device('cuda')
     args.fp16 = False
     args.max_grad_norm = 1.0
-    args.logging_steps = 200
-    args.save_steps = 500
+    args.logging_steps = 500
+    args.save_steps = 1500
     args.evaluate_during_training = True
-    args.output_dir = '/jupyter/bohemian-chandrasekhar-762/work/GreenAl/out_transformer_0_v2'
+    args.output_dir = '/notebook/greenAI/out_transformer_0_v2'
     args.eval_batch_size = 16
     args.save_total_limit = 2
-    args.from_chkpt = False
-    args.chkpt_path = "/jupyter/abundant-bardeen-730/work/GreenAl/out_transformer_0_v1/checkpoint-1500/"
+    args.from_chkpt = True
+    args.chkpt_path = "/notebook/greenAI/out_transformer_0_v1/checkpoint-24000/"
 
     mp.spawn(train_mp_wrapper, nprocs=args.n_gpu, args=(args,))
     
