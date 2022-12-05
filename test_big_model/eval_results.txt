@@ -1,0 +1,2 @@
+loss = 3.6482085612575705
+perplexity = tensor(38.4058)
