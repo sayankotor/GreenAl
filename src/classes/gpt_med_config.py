@@ -73,6 +73,7 @@ class GPT2MedConfig(PretrainedConfig):
         vocab_size=50257,
         n_positions=1024,
         n_embd=1024,
+        n_ctx=1024, 
         n_layer=24,
         n_head=16,
         n_inner=None,
@@ -100,6 +101,7 @@ class GPT2MedConfig(PretrainedConfig):
         self.n_embd = n_embd
         self.n_layer = n_layer
         self.n_head = n_head
+        self.n_ctx = n_ctx
         self.n_inner = n_inner
         self.activation_function = activation_function
         self.resid_pdrop = resid_pdrop
