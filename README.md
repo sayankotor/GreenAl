@@ -4,6 +4,7 @@
 3) Results on Language modelling task evaluation and results on GLUE benchmark
 
 **1. TTM layer for forward and backward passes in language models**
+
 Time/memory footprint for a single layer in /notebooks/speed_and_memory_TTM_layer.ipynb
 
 The memory footprint for GPT-2 with TTM layers /notebooks/train_transformers_TT.ipynb
