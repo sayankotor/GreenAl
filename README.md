@@ -1,4 +1,7 @@
 # GreenAl
+
+We wamt to provide ways to train and deploy large language models in an environmentally conscious manner, minimizing electricity consumption and reducing carbon footprint emissions.🌱🌱🌱
+
 1) New TTM layer class that imitate the Fully Connected layer behaviour, with corresponding Forward and Backward
 2) Pipeline for training GPT-2 model (small and medium) with TTM layers
 3) Results on Language modelling task evaluation and results on GLUE benchmark
