@@ -1,9 +1,9 @@
-## GreenAl
+# GreenAl
 1) New TTM layer class that imitate the Fully Connected layer behaviour, with corresponding Forward and Backward
 2) Pipeline for training GPT-2 model (small and medium) with TTM layers
 3) Results on Language modelling task evaluation and results on GLUE benchmark
 
-# 1. TTM layer for forward and backward passes in language models
+## 1. TTM layer for forward and backward passes in language models
 
 **Layer Class** is in src/ttm_linear/ttm_linear.py
 
@@ -13,7 +13,7 @@
 
 The **memory footprint** for GPT-2 with TTM layers /notebooks/train_transformers_TT.ipynb
 
-# 2.1 Train GPT-2 small on Wikitext-103
+## 2.1 Train GPT-2 small on Wikitext-103
 
 You need to load Wikitext-103 dataset:
 
@@ -27,7 +27,7 @@ To start gpt-small with custom TTM-R layers:
 
 run **python3 transformer_from_scratch_tt.py --rank R**
 
-# 2.2 Train GPT-2 medium on Openwebtext
+## 2.2 Train GPT-2 medium on Openwebtext
 
 You need to load Openwebtext texts(~52G) to /BASE_DIR/owt_files/openwebtext/texts
 
